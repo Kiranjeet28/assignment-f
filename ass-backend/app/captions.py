@@ -14,16 +14,38 @@ def detect_captions(lines: list[dict], regions: list[dict]) -> list[dict]:
     typical = statistics.median(heights) if heights else 12
     found = []
     for line in lines:
-        text, box = line["text"].strip(), line["bbox"]
-        small = (box["y1"] - box["y0"]) <= typical * 1.3
-        heading_like = text.isupper() and len(text.split()) <= 4
-        numbered_heading = bool(re.match(r"^\s*\d+(?:\.\d+)*\.?\s+", text))
         for region in regions:
             rb = region["bbox"]
+            box = line["bbox"]
+            # OCR may combine the end of a body line in one column with a
+            # caption in another. Restrict the candidate to words inside the
+            # visual's horizontal span so only caption words are excluded.
+            line_width = box["x1"] - box["x0"]
+            region_width = rb["x1"] - rb["x0"]
+            candidate = line
+            if line_width > region_width * 1.35 and line.get("words"):
+                selected = [word for word in line["words"]
+                            if rb["x0"] - typical * 0.3 <= (word["bbox"]["x0"] + word["bbox"]["x1"]) / 2
+                            <= rb["x1"] + typical * 0.3]
+                if not selected:
+                    continue
+                selected.sort(key=lambda word: word["bbox"]["x0"])
+                candidate_box = {
+                    "x0": min(word["bbox"]["x0"] for word in selected),
+                    "y0": min(word["bbox"]["y0"] for word in selected),
+                    "x1": max(word["bbox"]["x1"] for word in selected),
+                    "y1": max(word["bbox"]["y1"] for word in selected),
+                }
+                candidate = {**line, "text": " ".join(word["text"] for word in selected),
+                             "bbox": candidate_box, "words": selected}
+            text, box = candidate["text"].strip(), candidate["bbox"]
+            small = (box["y1"] - box["y0"]) <= typical * 1.3
+            heading_like = text.isupper() and len(text.split()) <= 4
+            numbered_heading = bool(re.match(r"^\s*\d+(?:\.\d+)*\.?\s+", text))
             horizontal = _overlap(box, rb) >= 0.45
             gap_below = box["y0"] - rb["y1"]
             gap_above = rb["y0"] - box["y1"]
-            adjacent_below = -3 <= gap_below <= typical * 1.6
+            adjacent_below = -3 <= gap_below <= typical * 2.5
             adjacent = adjacent_below or (-3 <= gap_above <= typical * 1.4)
             labeled = bool(CAPTION_LABEL.match(text))
             inside_edge = (
@@ -40,7 +62,7 @@ def detect_captions(lines: list[dict], regions: list[dict]) -> list[dict]:
                     "x1": max(previous_box["x1"], box["x1"]),
                     "y1": max(previous_box["y1"], box["y1"]),
                 } if previous_box else box)
-                found.append(line)
+                found.append(candidate)
                 break
     return found
 

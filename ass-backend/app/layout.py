@@ -66,17 +66,38 @@ def detect_visual_regions(image, words: list[dict]) -> list[dict]:
             word_density = len(inside) / max(1, area / 10000)
             if not is_color and word_density > 4.0:
                 continue
+            if is_color and word_density > 8.0 and cw / max(1, ch) > 1.5:
+                continue
             candidates.append({"bbox": box, "inside": inside, "is_color": is_color})
 
-    # Deduplicate near-identical proposals, preferring the more reliable color
-    # mask. Do not union overlapping panels: neighboring figures stay distinct.
+    # Deduplicate near-identical proposals and join touching fragments of the
+    # same panel (for example, a photo split between color and texture masks).
+    # Require a narrow vertical gap and nearly matching horizontal extents so
+    # neighboring figures and text columns remain separate.
     merged = []
     for candidate in sorted(candidates, key=lambda item: (item["bbox"]["y0"], item["bbox"]["x0"])):
-        match = next((entry for entry in merged
-                      if _intersection_over_smaller(entry["bbox"], candidate["bbox"]) > 0.72), None)
+        cb = candidate["bbox"]
+        match = None
+        for entry in merged:
+            eb = entry["bbox"]
+            if _intersection_over_smaller(eb, cb) > 0.72:
+                match = entry
+                break
+            overlap_x = max(0, min(eb["x1"], cb["x1"]) - max(eb["x0"], cb["x0"]))
+            narrowest_width = max(1, min(eb["x1"] - eb["x0"], cb["x1"] - cb["x0"]))
+            gap_y = max(0, max(eb["y0"], cb["y0"]) - min(eb["y1"], cb["y1"]))
+            different_masks = entry["is_color"] != candidate["is_color"]
+            if (overlap_x / narrowest_width >= 0.82
+                    and gap_y <= max(6, int(h * 0.008))
+                    and (different_masks or gap_y <= 6)):
+                match = entry
+                break
         if match:
-            if candidate["is_color"] and not match["is_color"]:
-                match.update(candidate)
+            b = match["bbox"]
+            match["bbox"] = _box(min(b["x0"], cb["x0"]), min(b["y0"], cb["y0"]),
+                                 max(b["x1"], cb["x1"]), max(b["y1"], cb["y1"]))
+            match["inside"].extend(candidate["inside"])
+            match["is_color"] = match["is_color"] or candidate["is_color"]
         else:
             merged.append(candidate)
 
@@ -90,10 +111,11 @@ def detect_visual_regions(image, words: list[dict]) -> list[dict]:
              min(3, int(4 * ((wrd["bbox"]["y0"] + wrd["bbox"]["y1"]) / 2 - b["y0"]) / bh)))
             for wrd in region["inside"]
         }
-        scattered_labels = len(region["inside"]) >= 12 and len(occupied_grid) >= 7
+        scattered_labels = (len(region["inside"]) >= 12 and len(occupied_grid) >= 7
+                            and unique_colors >= 12)
         area_ratio = ((b["x1"] - b["x0"]) * (b["y1"] - b["y0"])) / max(1, page_area)
         aspect_ratio = bw / bh
-        if (scattered_labels
+        if (scattered_labels and aspect_ratio < 3.8
                 or (area_ratio > 0.08 and aspect_ratio < 1.2)
                 or (area_ratio > 0.08 and len(region["inside"]) >= 8 and unique_colors > 18)):
             kind = "map"
