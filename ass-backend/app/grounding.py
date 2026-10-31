@@ -27,6 +27,14 @@ def _normalize(value: str) -> str:
     return " ".join(token.casefold() for token in WORD.findall(value))
 
 
+def _negated_statement(sentence: str) -> str | None:
+    if re.search(r"\b(?:not|never|no)\b", sentence, flags=re.I):
+        return None
+    match = re.search(r"\b(is|are|was|were|has|have|had|can|could|will|would|should|must)\b", sentence, flags=re.I)
+    if not match:
+        return None
+    return sentence[:match.end()] + " not" + sentence[match.end():]
+
 def grounded_question(question: dict, extracted_text: str, skipped_regions: list[dict]) -> bool:
     source = question.get("source_sentence", "").strip()
     prompt = question.get("question", "").strip()
@@ -58,9 +66,14 @@ def grounded_question(question: dict, extracted_text: str, skipped_regions: list
 
     if qtype == "true_false":
         statement = re.sub(r"^true\s+or\s+false\s*:\s*", "", prompt, flags=re.I).strip()
-        # Without a separate entailment model, only accept a verbatim source
-        # statement marked true; lexical overlap alone cannot prove a false claim.
-        if answer.casefold() != "true" or _normalize(statement) != source_normalized:
+        if answer.casefold() == "true":
+            if _normalize(statement) != source_normalized:
+                return False
+        elif answer.casefold() == "false":
+            expected_false = _negated_statement(source)
+            if not expected_false or _normalize(statement) != _normalize(expected_false):
+                return False
+        else:
             return False
 
     if qtype == "mcq":

@@ -5,7 +5,7 @@ import re
 from google import genai
 from google.genai import types
 
-from app.grounding import grounded_question
+from app.grounding import _negated_statement, grounded_question
 from app.schemas import Question, QuestionSet
 
 MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
@@ -20,7 +20,7 @@ def _prompt(extracted_text: str, count: int, types_requested: list[str], difficu
     return f"""Create exactly {count} educational questions using ONLY the source text below.
 Requested question types: {', '.join(types_requested)}.
 If the requested count is at least the number of distinct requested types, include at least one question of every requested type.
-Difficulty: {difficulty}. For mixed, distribute easy, medium, and hard. For true/false, use a verbatim complete sentence from the source and mark it True; do not invent a false statement without evidence.
+Difficulty: {difficulty}. For mixed, distribute easy, medium, and hard. For true/false, either use a verbatim source sentence marked True, or create a false item only by inserting "not" immediately after one auxiliary verb and marking it False. Keep the statement otherwise identical to its source sentence.
 Return strict JSON matching the provided schema. Each source_sentence must be copied verbatim, word-for-word, from a complete sentence in the source.
 Every answer must be directly supported by its source_sentence. Never ask about photographs, maps, diagrams, captions, or facts absent from the text.
 For MCQ, provide exactly four distinct options and one correct answer; the other options must be terms or values found elsewhere in the source text. Do not infer facts from visuals.
@@ -146,6 +146,10 @@ def _fallback_question(qtype: str, sentences: list[str], text: str, difficulty: 
     answer = max(choices, key=len)
     level = difficulty if difficulty != "mixed" else ["easy", "medium", "hard"][index % 3]
     if qtype == "true_false":
+        false_statement = _negated_statement(sentence)
+        if index % 2 == 1 and false_statement:
+            return Question(type=qtype, question=false_statement, options=None, answer="False",
+                            difficulty=level, source_sentence=sentence)
         return Question(type=qtype, question=sentence, options=None, answer="True",
                         difficulty=level, source_sentence=sentence)
     if qtype == "fill_blank":

@@ -96,7 +96,7 @@ Response pages include `page_image_url` (base64 PNG data URL), `page_size` in pi
 
 The response has the same top-level `pages` shape expected by the frontend, plus `extracted_text`, `skipped_regions`, `questions`, and warnings. Per-page output has `page_image_url`, pixel `page_size`, OCR `words` with bboxes/confidence/line ids, ordered `blocks`, `extracted_text`, `skipped_regions`, and `debug_overlay_url` for visual OCR/layout inspection. Accepted-confidence OCR words are retained in the response, including excluded words marked with `excluded` and `excluded_reason`.
 
-Question fields: `type`, `question`, `options` (four items for MCQ), `answer`, `difficulty`, and verbatim `source_sentence`. Deterministic checks require answer terms to appear in the cited sentence and question/option terms to appear in extracted text. True/false items are restricted to exact source sentences marked True; the backend does not claim semantic verification of arbitrary false statements. The request's image is used for OCR/layout only. Gemini receives only the assembled retained text.
+Question fields: `type`, `question`, `options` (four items for MCQ), `answer`, `difficulty`, and verbatim `source_sentence`. Deterministic checks require answer terms to appear in the cited sentence and question/option terms to appear in extracted text. True/false items are either exact source sentences marked True or a mechanically negated source sentence marked False; arbitrary model-generated false claims are rejected. The request's image is used for OCR/layout only. Gemini receives only the assembled retained text.
 
 ### Debug OCR
 
