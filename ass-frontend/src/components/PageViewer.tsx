@@ -15,6 +15,7 @@ export const REGION_BADGE: Record<RegionType, string> = {
 // Page image with skipped regions overlaid. Boxes use % of page_size so they scale with the image.
 export function PageViewer({ page }: { page: Page }) {
   const [show, setShow] = useState(true);
+  const [debug, setDebug] = useState(false);
   const [active, setActive] = useState<number | null>(null);
   const { width: W, height: H } = page.page_size;
   return (
@@ -28,10 +29,11 @@ export function PageViewer({ page }: { page: Page }) {
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} className="accent-primary" /> Show skipped regions
         </label>
+        {page.debug_overlay_url && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={debug} onChange={(e) => setDebug(e.target.checked)} className="accent-primary" /> Show OCR/layout overlay</label>}
       </div>
       <TiltCard className="mx-auto max-w-xl"><div className="relative overflow-hidden rounded-lg border border-border shadow-soft">
-        <img src={page.page_image_url} alt={`Page ${page.source}`} className="block w-full" />
-        {show && page.skipped_regions.map((r, i) => {
+        <img src={debug && page.debug_overlay_url ? page.debug_overlay_url : page.page_image_url} alt={`Page ${page.source}${debug ? " OCR and layout overlay" : ""}`} className="block w-full" />
+        {show && !debug && page.skipped_regions.map((r, i) => {
           const [x, y, w, h] = r.bbox;
           return (
             <button key={i} type="button"

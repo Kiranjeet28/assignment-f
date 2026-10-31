@@ -7,7 +7,7 @@ import { SettingsForm } from "@/components/SettingsForm";
 import { PageViewer, REGION_BADGE } from "@/components/PageViewer";
 import { QuestionCard, TYPE_LABEL } from "@/components/QuestionCard";
 import { JsonViewer } from "@/components/JsonViewer";
-import { generateQuestions, type Page, type Settings } from "@/lib/api";
+import { generateQuestions, resolveApiAsset, uploadFiles, type Page, type Settings } from "@/lib/api";
 import sample from "@/data/sample.json";
 
 export const Route = createFileRoute("/")({
@@ -35,6 +35,8 @@ function App() {
   const [files, setFiles] = useState<File[]>([]);
   const [settings, setSettings] = useState<Settings>({ mcq: 4, short_answer: 2, true_false: 2, fill_blank: 2, difficulty_mix: { easy: 4, medium: 4, hard: 2 } });
   const [pages, setPages] = useState<Page[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [status, setStatus] = useState<string | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
   const [tab, setTab] = useState<Tab>("Page View");
   const [loading, setLoading] = useState(false);
@@ -51,9 +53,30 @@ function App() {
   const load = (p: Page[]) => { setPages(p); setPageIdx(0); };
 
   const generate = async () => {
+    load([]);
+    setWarnings([]);
+    setStatus("Uploading files…");
     setLoading(true);
-    try { load(await generateQuestions(files, settings)); notify("Questions generated"); }
-    catch (e) { notify(`Generation failed: ${(e as Error).message}`, true); }
+    try {
+      const uploaded = await uploadFiles(files);
+      setStatus(`Uploaded ${uploaded.length} page${uploaded.length === 1 ? "" : "s"}. Generating questions…`);
+      const result = await generateQuestions(uploaded, settings);
+      const merged = uploaded.map((p, i) => ({
+        source: typeof p.source === "string" ? p.source : `Page ${p.page_number ?? i + 1}`,
+        page_number: p.page_number,
+        page_image_url: resolveApiAsset(p.page_image_url),
+        page_size: p.page_size,
+        extracted_text: result.extracted_text ?? "",
+        skipped_regions: result.skipped_regions.filter((r) => r.page == null || r.page === p.page_number || r.page === i + 1),
+        questions: result.questions,
+        debug_overlay_url: result.debug_overlay_url ? resolveApiAsset(result.debug_overlay_url) : undefined,
+      } satisfies Page));
+      load(merged);
+      setWarnings(Array.isArray(result.warnings) ? result.warnings : []);
+      setStatus(`Generated ${result.questions.length} questions from ${uploaded.length} page${uploaded.length === 1 ? "" : "s"}.`);
+      notify("Questions generated");
+    }
+    catch (e) { setStatus((e as Error).message); notify((e as Error).message, true); }
     finally { setLoading(false); }
   };
 
@@ -84,15 +107,17 @@ function App() {
               {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" aria-hidden />}
               {loading ? "Generating…" : "Generate Questions"}
             </button>
-            <button type="button" onClick={() => { load((sample as { pages: Page[] }).pages); notify("Sample loaded"); }} className="btn-ghost w-full">Load sample JSON</button>
+            <button type="button" onClick={() => { load((sample as { pages: Page[] }).pages); setWarnings([]); setStatus("Sample results loaded."); notify("Sample loaded"); }} className="btn-ghost w-full">Load sample JSON</button>
+            {status && <p role={status.startsWith("Generated") || status.startsWith("Sample") || loading ? "status" : "alert"} aria-live="polite" className={`rounded-md px-3 py-2 text-sm ${status.startsWith("Generated") || status.startsWith("Sample") || loading ? "bg-accent text-accent-foreground" : "bg-destructive/10 text-destructive"}`}>{status}</p>}
           </div>
         </aside>
 
         <SpotlightCard className="min-w-0" aria-label="Results">
+          {warnings.length > 0 && <div role="status" className="mb-4 rounded-md border border-region-caption bg-region-caption/10 p-3 text-sm"><b>Backend warnings</b><ul className="mt-1 list-disc pl-5">{warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></div>}
           {pages.length > 1 && (
             <label className="mb-4 flex items-center gap-2 text-sm">Page
               <select value={pageIdx} onChange={(e) => setPageIdx(+e.target.value)} className="rounded-md border border-input bg-background px-2 py-1">
-                {pages.map((p, i) => <option key={i} value={i}>{i + 1}. {p.source}</option>)}
+                {pages.map((p, i) => <option key={i} value={i}>{p.page_number ?? i + 1}. {p.source}</option>)}
               </select>
             </label>
           )}
@@ -150,7 +175,7 @@ function App() {
                     </select>
                     <label className="ml-auto flex items-center gap-2"><input type="checkbox" checked={allAns} onChange={(e) => setAllAns(e.target.checked)} className="accent-primary" /> Show all answers</label>
                   </div>
-                  {qs.length === 0 ? <Empty msg="No questions match these filters." /> : <div className="grid gap-3 md:grid-cols-2">{qs.map((q, i) => <motion.div key={q.id} layout initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}><QuestionCard q={q} forceOpen={allAns} /></motion.div>)}</div>}
+                  {qs.length === 0 ? <Empty msg="No questions match these filters." /> : <div className="grid gap-3 md:grid-cols-2">{qs.map((q, i) => <motion.div key={q.id ?? i} layout initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}><QuestionCard q={q} forceOpen={allAns} /></motion.div>)}</div>}
                 </div>
               )}
 

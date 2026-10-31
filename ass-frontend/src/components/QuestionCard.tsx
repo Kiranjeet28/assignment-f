@@ -11,7 +11,7 @@ export function QuestionCard({ q, forceOpen }: { q: Question; forceOpen: boolean
   return (
     <article className="h-full rounded-lg border border-border bg-card p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-soft">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-mono text-muted-foreground">Q{q.id}</span>
+        <span className="font-mono text-muted-foreground">Q{q.id ?? "—"}</span>
         <span className="rounded bg-secondary px-2 py-0.5 font-medium">{TYPE_LABEL[q.type]}</span>
         <span className={`rounded px-2 py-0.5 font-medium capitalize ${DIFF[q.difficulty]}`}>{q.difficulty}</span>
       </div>
