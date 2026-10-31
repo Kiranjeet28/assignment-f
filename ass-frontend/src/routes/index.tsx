@@ -109,20 +109,39 @@ function App() {
       const uploaded = await uploadFiles(files);
       setStatus(`Uploaded ${uploaded.length} page${uploaded.length === 1 ? "" : "s"}. Generating questions…`);
       const result = await generateQuestions(uploaded, settings);
-      const regions = normalizeRegions(result.skipped_regions);
+      const topRegions = normalizeRegions(result.skipped_regions);
+      const processedPages = Array.isArray(result.pages) ? result.pages : [];
       const extractedText = typeof result.extracted_text === "string" ? result.extracted_text : "";
       const questions = normalizeQuestions(result.questions);
       if (questions.length === 0) throw new Error("The backend returned a questions list, but none of its entries had a readable question and answer.");
-      const merged = uploaded.map((p, i) => ({
-        source: typeof p["source"] === "string" ? p["source"] : `Page ${p.page_number ?? i + 1}`,
-        page_number: p.page_number,
-        page_image_url: typeof p.page_image_url === "string" ? resolveApiAsset(p.page_image_url) : "",
-        page_size: p.page_size && typeof p.page_size.width === "number" && typeof p.page_size.height === "number" ? p.page_size : { width: 1, height: 1 },
-        extracted_text: extractedText,
-        skipped_regions: regions.filter((r) => r.page == null || r.page === p.page_number || r.page === i + 1),
-        questions,
-        ...(result.debug_overlay_url ? { debug_overlay_url: resolveApiAsset(result.debug_overlay_url) } : {}),
-      } satisfies Page));
+      const merged = uploaded.map((p, i) => {
+        const processed = processedPages.find((candidate) => candidate.page_number === p.page_number)
+          ?? processedPages[i];
+        const pageRegions = normalizeRegions(processed?.skipped_regions);
+        const globalRegions = topRegions.filter((r) => r.page == null || r.page === p.page_number || r.page === i + 1);
+        // The API returns regions both per-page and at top level. Merge both
+        // so older backend variants and partial responses still draw every
+        // detector result, while removing duplicated boxes.
+        const regionMap = new Map<string, (typeof pageRegions)[number]>();
+        for (const region of [...pageRegions, ...globalRegions]) {
+          const key = [region.type, ...region.bbox.map((value) => Math.round(value)), region.caption ?? ""].join(":");
+          regionMap.set(key, region);
+        }
+        const pageDebugOverlay = typeof processed?.debug_overlay_url === "string"
+          ? processed.debug_overlay_url : result.debug_overlay_url;
+        return {
+          source: typeof p["source"] === "string" ? p["source"] : `Page ${p.page_number ?? i + 1}`,
+          page_number: p.page_number,
+          page_image_url: typeof p.page_image_url === "string" ? resolveApiAsset(p.page_image_url) : "",
+          page_size: processed?.page_size && typeof processed.page_size.width === "number" && typeof processed.page_size.height === "number"
+            ? processed.page_size
+            : p.page_size && typeof p.page_size.width === "number" && typeof p.page_size.height === "number" ? p.page_size : { width: 1, height: 1 },
+          extracted_text: extractedText,
+          skipped_regions: [...regionMap.values()],
+          questions,
+          ...(pageDebugOverlay ? { debug_overlay_url: resolveApiAsset(pageDebugOverlay) } : {}),
+        } satisfies Page;
+      });
       load(merged);
       setWarnings(Array.isArray(result.warnings) ? result.warnings.map((warning) => typeof warning === "string" ? warning : JSON.stringify(warning)) : []);
       setStatus(`Generated ${questions.length} questions from ${uploaded.length} page${uploaded.length === 1 ? "" : "s"}.`);

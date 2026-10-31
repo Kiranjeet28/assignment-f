@@ -37,10 +37,10 @@ def detect_visual_regions(image, words: list[dict]) -> list[dict]:
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     local_mean = cv2.blur(gray, (21, 21))
     local_sq = cv2.blur(gray.astype(np.float32) ** 2, (21, 21))
-    texture = ((local_sq - local_mean.astype(np.float32) ** 2) > 650).astype(np.uint8) * 255
+    texture = ((local_sq - local_mean.astype(np.float32) ** 2) > 300).astype(np.uint8) * 255
     texture_mask = cv2.morphologyEx(
         texture, cv2.MORPH_CLOSE,
-        cv2.getStructuringElement(cv2.MORPH_RECT, (max(5, w // 200), max(3, h // 200))))
+        cv2.getStructuringElement(cv2.MORPH_RECT, (max(11, w // 120), max(9, h // 120))))
     page_area = w * h
     candidates = []
     for source_mask, is_color in ((color_mask, True), (texture_mask, False)):
@@ -51,13 +51,13 @@ def detect_visual_regions(image, words: list[dict]) -> list[dict]:
             # Ignore tiny decoration and page-sized background/text blobs.
             # Textbook photos are often only 3–5% of the page area. The older
             # 6% color cutoff dropped those panels while keeping the map.
-            min_area = page_area * (0.025 if is_color else 0.018)
+            min_area = page_area * (0.018 if is_color else 0.012)
             if (area < min_area or area > page_area * 0.62
-                    or cw < w * 0.12 or ch < h * 0.09):
+                    or cw < w * 0.10 or ch < h * 0.05):
                 continue
             box = _box(x, y, x + cw, y + ch)
             fill = cv2.countNonZero(source_mask[y:y + ch, x:x + cw]) / max(1, area)
-            if fill < (0.16 if is_color else 0.27):
+            if fill < (0.12 if is_color else 0.16):
                 continue
             inside = [word for word in words if _intersection_over_smaller(word["bbox"], box) > 0.65]
             # Texture on dense printed paragraphs can form page-sized blobs.

@@ -10,7 +10,11 @@ export interface Page {
   source: string; page_number?: number; page_image_url: string; page_size: { width: number; height: number };
   extracted_text: string; skipped_regions: Region[]; questions: Question[]; debug_overlay_url?: string;
 }
-export interface GenerateResult { extracted_text: string; questions: Question[]; skipped_regions: Region[]; warnings: string[]; debug_overlay_url?: string }
+export interface GeneratedPage {
+  page_number: number; page_size: { width: number; height: number }; page_image_url?: string;
+  skipped_regions?: unknown[]; debug_overlay_url?: string;
+}
+export interface GenerateResult { pages?: GeneratedPage[]; extracted_text: string; questions: Question[]; skipped_regions: Region[]; warnings: string[]; debug_overlay_url?: string }
 export interface Settings { mcq: number; short_answer: number; true_false: number; fill_blank: number; difficulty_mix: Record<Difficulty, number> }
 
 const apiBase = (import.meta.env["VITE_API_BASE_URL"] as string | undefined)?.replace(/\/$/, "");
