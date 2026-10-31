@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gemini Backend Check</title>
+  <style>
+    :root { color-scheme: light; font: 15px/1.5 system-ui, sans-serif; color: #172033; background: #f4f6fb; }
+    * { box-sizing: border-box; }
+    body { max-width: 980px; margin: 32px auto; padding: 0 18px; }
+    h1 { margin-bottom: 4px; }
+    .muted { color: #63708a; }
+    .card { background: white; border: 1px solid #dfe5ef; border-radius: 12px; padding: 20px; margin: 18px 0; box-shadow: 0 4px 16px #1d31500a; }
+    label { display: block; font-weight: 650; margin: 12px 0 5px; }
+    input[type="url"], input[type="number"], input[type="file"], select { width: 100%; padding: 10px; border: 1px solid #cbd4e2; border-radius: 8px; background: white; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+    .types { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0; }
+    .types label { font-weight: 500; margin: 0; }
+    button { border: 0; border-radius: 8px; padding: 11px 17px; margin-top: 16px; color: white; background: #3157d5; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #101827; color: #e3ecff; border-radius: 8px; padding: 14px; max-height: 430px; overflow: auto; }
+    .status { padding: 10px 12px; border-radius: 8px; background: #edf1f8; margin-top: 12px; }
+    .ok { background: #e5f7ec; color: #17613a; }
+    .bad { background: #fff0ef; color: #9b2c25; }
+    .question { border-top: 1px solid #e4e8f0; padding: 12px 0; }
+    .question:first-child { border-top: 0; }
+    .pill { display: inline-block; border-radius: 999px; background: #edf1ff; padding: 2px 9px; font-size: 12px; }
+    details { margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Gemini Backend Check</h1>
+  <div class="muted">Upload a page, then generate and inspect grounded questions. The API key stays on the backend.</div>
+
+  <section class="card">
+    <label for="base">Backend URL</label>
+    <input id="base" type="url" value="http://127.0.0.1:8000" spellcheck="false">
+    <div class="grid">
+      <div>
+        <label for="files">Select a 2-page PDF</label>
+        <input id="files" type="file" accept=".pdf,application/pdf">
+      </div>
+      <div>
+        <label for="count">Question count</label>
+        <input id="count" type="number" value="4" min="1" max="30">
+      </div>
+      <div>
+        <label for="difficulty">Difficulty</label>
+        <select id="difficulty"><option>mixed</option><option>easy</option><option>medium</option><option>hard</option></select>
+      </div>
+    </div>
+    <label>Question types</label>
+    <div class="types">
+      <label><input type="checkbox" value="mcq" checked> MCQ</label>
+      <label><input type="checkbox" value="short_answer" checked> Short answer</label>
+      <label><input type="checkbox" value="true_false" checked> True/False</label>
+      <label><input type="checkbox" value="fill_blank" checked> Fill blank</label>
+    </div>
+    <button id="run">Upload and generate questions</button>
+    <div id="status" class="status">Ready. Start the FastAPI backend, then choose a file.</div>
+  </section>
+
+  <section class="card">
+    <h2>Generated questions</h2>
+    <div id="questions" class="muted">No request yet.</div>
+  </section>
+
+  <section class="card">
+    <h2>Extracted text</h2>
+    <pre id="text">No request yet.</pre>
+    <h2>Skipped regions</h2>
+    <pre id="regions">No request yet.</pre>
+  </section>
+
+  <details class="card">
+    <summary>Raw API response</summary>
+    <pre id="raw">No request yet.</pre>
+  </details>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (message, kind = "") => {
+      $("status").textContent = message;
+      $("status").className = `status ${kind}`;
+    };
+    const readResponse = async (response) => {
+      const body = await response.text();
+      let data;
+      try { data = JSON.parse(body); } catch { data = { detail: body || response.statusText }; }
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${data.detail || body || response.statusText}`);
+      return data;
+    };
+    const showQuestions = (questions = []) => {
+      const host = $("questions");
+      host.replaceChildren();
+      if (!questions.length) { host.textContent = "No questions returned."; return; }
+      questions.forEach((q, i) => {
+        const box = document.createElement("div"); box.className = "question";
+        const title = document.createElement("strong"); title.textContent = `${i + 1}. ${q.question || "(question text missing)"}`;
+        const meta = document.createElement("div"); meta.innerHTML = `<span class="pill"></span>`;
+        meta.querySelector(".pill").textContent = `${q.type || "unknown type"} · ${q.difficulty || "difficulty unknown"}`;
+        const answer = document.createElement("div"); answer.textContent = `Answer: ${q.answer || "(missing)"}`;
+        const source = document.createElement("div"); source.className = "muted"; source.textContent = `Source: ${q.source_sentence || "(missing)"}`;
+        box.append(title, meta, answer, source);
+        if (Array.isArray(q.options)) { const opts = document.createElement("div"); opts.textContent = `Options: ${q.options.join(" | ")}`; box.append(opts); }
+        host.append(box);
+      });
+    };
+
+    $("run").addEventListener("click", async () => {
+      const files = [...$("files").files];
+      const types = [...document.querySelectorAll(".types input:checked")].map((node) => node.value);
+      if (files.length !== 1) return status("Choose one PDF file.", "bad");
+      if (!files[0].name.toLowerCase().endsWith(".pdf") && files[0].type !== "application/pdf")
+        return status("Only PDF files are accepted.", "bad");
+      if (!types.length) return status("Select at least one question type.", "bad");
+      const base = $("base").value.trim().replace(/\/+$/, "");
+      const button = $("run"); button.disabled = true;
+      $("questions").textContent = "Waiting for Gemini…";
+      $("text").textContent = "Processing…"; $("regions").textContent = "Processing…";
+      const started = Date.now();
+      try {
+        status("Uploading and converting pages…");
+        const form = new FormData(); form.append("files", files[0]);
+        const uploaded = await readResponse(await fetch(`${base}/api/upload`, { method: "POST", body: form }));
+        if (!Array.isArray(uploaded.pages) || !uploaded.pages.length) throw new Error("Upload succeeded but returned no pages.");
+        if (uploaded.pages.length !== 2)
+          throw new Error(`This checker requires exactly 2 PDF pages; the selected PDF produced ${uploaded.pages.length} page(s).`);
+        status(`${uploaded.pages.length} page(s) uploaded. Waiting for OCR and Gemini; generation can take a while…`);
+        const payload = {
+          pages: uploaded.pages,
+          question_count: Number($("count").value),
+          question_types: types,
+          difficulty: $("difficulty").value
+        };
+        const result = await readResponse(await fetch(`${base}/api/generate`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        }));
+        const questions = result.questions || [];
+        showQuestions(questions);
+        $("text").textContent = result.extracted_text || "(No extracted text returned)";
+        $("regions").textContent = JSON.stringify(result.skipped_regions || [], null, 2);
+        $("raw").textContent = JSON.stringify(result, null, 2);
+        const typesReturned = [...new Set(questions.map((q) => q.type))].join(", ") || "none";
+        status(`HTTP 200 · ${questions.length} question(s) · types: ${typesReturned} · ${Math.round((Date.now() - started) / 1000)}s`, questions.length ? "ok" : "bad");
+      } catch (error) {
+        showQuestions([]);
+        $("text").textContent = "Generation did not return extracted text.";
+        $("regions").textContent = "See the error and backend logs.";
+        $("raw").textContent = String(error);
+        status(`${error.message} — check that FastAPI is running and inspect its terminal for details.`, "bad");
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1400" width="1000" height="1400">
+<rect width="1000" height="1400" fill="#fbf7ef"/>
+<text x="80" y="120" font-family="Georgia" font-size="48" fill="#222">Rivers of India</text>
+<g fill="#888"><rect x="80" y="170" width="840" height="14"/><rect x="80" y="200" width="800" height="14"/><rect x="80" y="230" width="820" height="14"/><rect x="80" y="260" width="600" height="14"/></g>
+<rect x="80" y="310" width="400" height="300" fill="#c9b79c"/><text x="190" y="470" font-family="Arial" font-size="28" fill="#5a4a33">PHOTO</text>
+<rect x="80" y="625" width="400" height="40" fill="#e8dfcf"/>
+<rect x="520" y="310" width="400" height="360" fill="#a9c4d8"/><text x="660" y="500" font-family="Arial" font-size="28" fill="#2b4a63">MAP</text>
+<g fill="#888"><rect x="80" y="720" width="840" height="14"/><rect x="80" y="750" width="810" height="14"/><rect x="80" y="780" width="840" height="14"/><rect x="80" y="810" width="700" height="14"/><rect x="80" y="840" width="830" height="14"/><rect x="80" y="870" width="500" height="14"/></g>
+<rect x="250" y="920" width="500" height="300" fill="#cbbfe0"/><text x="420" y="1080" font-family="Arial" font-size="28" fill="#4a3a6b">DIAGRAM</text>
+<g fill="#888"><rect x="80" y="1260" width="840" height="14"/><rect x="80" y="1290" width="760" height="14"/></g>
+<text x="900" y="1370" font-family="Georgia" font-size="22" fill="#555">44</text>
+</svg>

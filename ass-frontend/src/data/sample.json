@@ -1,0 +1,24 @@
+{
+  "pages": [
+    {
+      "source": "rivers_of_india_p44.png",
+      "page_image_url": "/sample-page.svg",
+      "page_size": { "width": 1000, "height": 1400 },
+      "extracted_text": "The rivers of India can be divided into two main groups: the Himalayan rivers and the Peninsular rivers. The Himalayan rivers are perennial, meaning they have water throughout the year. They receive water from both rain and melted snow from the lofty mountains.\n\nThe Ganga is the longest river in India, flowing about 2,525 km from the Gangotri glacier to the Bay of Bengal. The Peninsular rivers, such as the Godavari and the Krishna, are mostly seasonal because their flow depends on rainfall. The Godavari is often called the Dakshin Ganga because it is the largest Peninsular river.\n\nRivers have played an important role in the development of human civilisation. Many cities have grown on the banks of rivers.",
+      "skipped_regions": [
+        { "type": "photo", "caption": null, "bbox": [80, 310, 400, 300] },
+        { "type": "caption", "caption": "Fig 3.1: The Ganga at Varanasi", "bbox": [80, 625, 400, 40] },
+        { "type": "map", "caption": "Major rivers of India", "bbox": [520, 310, 400, 360] },
+        { "type": "diagram", "caption": "Drainage basin cross-section", "bbox": [250, 920, 500, 300] }
+      ],
+      "questions": [
+        { "id": 1, "type": "mcq", "difficulty": "easy", "question": "Which is the longest river in India?", "options": ["Godavari", "Ganga", "Krishna", "Narmada"], "answer": "Ganga", "source_sentence": "The Ganga is the longest river in India, flowing about 2,525 km from the Gangotri glacier to the Bay of Bengal." },
+        { "id": 2, "type": "mcq", "difficulty": "medium", "question": "Which river is called the Dakshin Ganga?", "options": ["Krishna", "Kaveri", "Godavari", "Mahanadi"], "answer": "Godavari", "source_sentence": "The Godavari is often called the Dakshin Ganga because it is the largest Peninsular river." },
+        { "id": 3, "type": "short_answer", "difficulty": "medium", "question": "Why are Himalayan rivers perennial?", "options": null, "answer": "They receive water from both rain and melted snow.", "source_sentence": "They receive water from both rain and melted snow from the lofty mountains." },
+        { "id": 4, "type": "true_false", "difficulty": "easy", "question": "Peninsular rivers are mostly seasonal.", "options": ["True", "False"], "answer": "True", "source_sentence": "The Peninsular rivers, such as the Godavari and the Krishna, are mostly seasonal because their flow depends on rainfall." },
+        { "id": 5, "type": "fill_blank", "difficulty": "hard", "question": "The Ganga flows about ______ km to the Bay of Bengal.", "options": null, "answer": "2,525", "source_sentence": "The Ganga is the longest river in India, flowing about 2,525 km from the Gangotri glacier to the Bay of Bengal." },
+        { "id": 6, "type": "short_answer", "difficulty": "hard", "question": "Explain the role of rivers in human civilisation.", "options": null, "answer": "Rivers supported development; many cities grew on their banks.", "source_sentence": "Many cities have grown on the banks of rivers." }
+      ]
+    }
+  ]
+}

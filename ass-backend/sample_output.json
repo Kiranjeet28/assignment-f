@@ -1,0 +1,39 @@
+{
+  "_note": "Synthetic contract example only; this is not OCR output from textbook page 44.",
+  "pages": [
+    {
+      "page_number": 1,
+      "page_size": {"width": 1654, "height": 2339, "unit": "px"},
+      "page_image_url": "data:image/png;base64,<page image returned by POST /api/upload>",
+      "extracted_text": "Rivers carry sediments downstream. A delta forms where a river deposits sediment at its mouth.",
+      "blocks": [
+        {"page": 1, "text": "Rivers carry sediments downstream.", "bbox": {"x0": 100, "y0": 260, "x1": 850, "y1": 300}, "tag": "paragraph", "optional": false},
+        {"page": 1, "text": "A delta forms where a river deposits sediment at its mouth.", "bbox": {"x0": 100, "y0": 310, "x1": 1150, "y1": 350}, "tag": "paragraph", "optional": false}
+      ],
+      "words": [
+        {"text": "Rivers", "bbox": {"x0": 100, "y0": 260, "x1": 170, "y1": 300}, "confidence": 96.4, "block_num": 1, "paragraph_num": 1, "line_num": 1, "word_num": 1}
+      ],
+      "skipped_regions": [
+        {"page": 1, "bbox": {"x0": 920, "y0": 720, "x1": 1450, "y1": 1180}, "type": "map", "caption": "Figure 1: River basin", "reason": "opencv_non_text_visual"},
+        {"page": 1, "bbox": {"x0": 940, "y0": 1185, "x1": 1400, "y1": 1210}, "type": "caption", "caption": "Figure 1: River basin", "reason": "adjacent_small_text_or_caption_label"}
+      ],
+      "debug_overlay_url": "data:image/jpeg;base64,<debug OCR overlay returned by API>"
+    }
+  ],
+  "extracted_text": "Rivers carry sediments downstream. A delta forms where a river deposits sediment at its mouth.",
+  "skipped_regions": [
+    {"page": 1, "bbox": {"x0": 920, "y0": 720, "x1": 1450, "y1": 1180}, "type": "map", "caption": "Figure 1: River basin", "reason": "opencv_non_text_visual"},
+    {"page": 1, "bbox": {"x0": 940, "y0": 1185, "x1": 1400, "y1": 1210}, "type": "caption", "caption": "Figure 1: River basin", "reason": "adjacent_small_text_or_caption_label"}
+  ],
+  "questions": [
+    {
+      "type": "fill_blank",
+      "question": "A delta forms where a river deposits _____ at its mouth.",
+      "options": null,
+      "answer": "sediment",
+      "difficulty": "easy",
+      "source_sentence": "A delta forms where a river deposits sediment at its mouth."
+    }
+  ],
+  "warnings": []
+}
