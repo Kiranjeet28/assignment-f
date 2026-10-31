@@ -6,7 +6,9 @@ const clamp = (n: number) => Math.max(0, Math.min(10, Number.isFinite(n) ? n : 0
 // Question count inputs + difficulty mix sliders.
 export function SettingsForm({ value, onChange }: { value: Settings; onChange: (s: Settings) => void }) {
   const mix = value.difficulty_mix;
-  const total = mix.easy + mix.medium + mix.hard;
+  const total = value.mcq + value.short_answer + value.true_false + value.fill_blank;
+  const activeDifficulties = (Object.keys(mix) as Difficulty[]).filter((d) => mix[d] > 0);
+  const difficulty = activeDifficulties.length === 1 ? activeDifficulties[0]! : "mixed";
   return (
     <fieldset className="space-y-4">
       <legend className="mb-2 font-display text-lg">Question settings</legend>
@@ -14,25 +16,23 @@ export function SettingsForm({ value, onChange }: { value: Settings; onChange: (
         {COUNTS.map(([k, label]) => (
           <label key={k} className="text-sm">
             <span className="mb-1 block text-muted-foreground">{label}</span>
-            <input type="number" min={0} max={10} value={value[k]} onChange={(e) => onChange({ ...value, [k]: clamp(+e.target.value) })}
+            <input type="number" min={0} max={Math.min(10, 30 - (total - value[k]) )} value={value[k]} onChange={(e) => onChange({ ...value, [k]: Math.min(Math.min(10, 30 - (total - value[k])), clamp(+e.target.value)) })}
               className="w-full rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </label>
         ))}
       </div>
-      <div>
-        <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Difficulty mix</span>
-          <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">Total: {total}</span>
-        </div>
-        {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
-          <label key={d} className="mb-2 flex items-center gap-3 text-sm">
-            <span className="w-16 capitalize">{d}</span>
-            <input type="range" min={0} max={10} value={mix[d]} aria-label={`${d} questions`}
-              onChange={(e) => onChange({ ...value, difficulty_mix: { ...mix, [d]: +e.target.value } })} className="flex-1 accent-primary" />
-            <span className="w-6 text-right font-mono">{mix[d]}</span>
-          </label>
-        ))}
-      </div>
+      <label className="block text-sm">
+        <span className="mb-1 block text-muted-foreground">Difficulty</span>
+        <select value={difficulty} onChange={(e) => {
+          const selected = e.target.value;
+          onChange({ ...value, difficulty_mix: selected === "mixed"
+            ? { easy: 1, medium: 1, hard: 1 }
+            : { easy: selected === "easy" ? 1 : 0, medium: selected === "medium" ? 1 : 0, hard: selected === "hard" ? 1 : 0 } });
+        }} className="w-full rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <option value="mixed">Mixed</option><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+        </select>
+      </label>
+      <p className="text-xs text-muted-foreground">Total requested: {total} (maximum 30). Type counts choose the total and enabled types; the API chooses the split between enabled types.</p>
     </fieldset>
   );
 }

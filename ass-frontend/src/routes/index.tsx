@@ -83,6 +83,8 @@ function App() {
   const [files, setFiles] = useState<File[]>([]);
   const [settings, setSettings] = useState<Settings>({ mcq: 4, short_answer: 2, true_false: 2, fill_blank: 2, difficulty_mix: { easy: 4, medium: 4, hard: 2 } });
   const [pages, setPages] = useState<Page[]>([]);
+  const [questions, setQuestions] = useState<Page["questions"]>([]);
+  const [aggregateText, setAggregateText] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
@@ -98,10 +100,15 @@ function App() {
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3500); return () => clearTimeout(t); }, [toast]);
 
   const notify = (msg: string, err = false) => setToast({ msg, err });
-  const load = (p: Page[]) => { setPages(p); setPageIdx(0); };
+  const load = (p: Page[], q = p.flatMap((item) => item.questions), text = p.map((item) => item.extracted_text).filter(Boolean).join("\n\n")) => {
+    setPages(p);
+    setQuestions(q);
+    setAggregateText(text);
+    setPageIdx(0);
+  };
 
   const generate = async () => {
-    load([]);
+    load([], [], "");
     setWarnings([]);
     setStatus("Uploading files…");
     setLoading(true);
@@ -136,13 +143,13 @@ function App() {
           page_size: processed?.page_size && typeof processed.page_size.width === "number" && typeof processed.page_size.height === "number"
             ? processed.page_size
             : p.page_size && typeof p.page_size.width === "number" && typeof p.page_size.height === "number" ? p.page_size : { width: 1, height: 1 },
-          extracted_text: extractedText,
+          extracted_text: typeof processed?.extracted_text === "string" ? processed.extracted_text : uploaded.length === 1 ? extractedText : "",
           skipped_regions: [...regionMap.values()],
-          questions,
+          questions: i === 0 ? questions : [],
           ...(pageDebugOverlay ? { debug_overlay_url: resolveApiAsset(pageDebugOverlay) } : {}),
         } satisfies Page;
       });
-      load(merged);
+      load(merged, questions, extractedText);
       setWarnings(Array.isArray(result.warnings) ? result.warnings.map((warning) => typeof warning === "string" ? warning : JSON.stringify(warning)) : []);
       setStatus(`Generated ${questions.length} questions from ${uploaded.length} page${uploaded.length === 1 ? "" : "s"}.`);
       notify("Questions generated");
@@ -152,7 +159,7 @@ function App() {
   };
 
   const page = pages[pageIdx];
-  const qs = page?.questions.filter((q) => (fType === "all" || q.type === fType) && (fDiff === "all" || q.difficulty === fDiff)) ?? [];
+  const qs = questions.filter((q) => (fType === "all" || q.type === fType) && (fDiff === "all" || q.difficulty === fDiff));
   const words = page?.extracted_text.trim().split(/\s+/).filter(Boolean).length ?? 0;
 
   return (
@@ -250,14 +257,14 @@ function App() {
                 </div>
               )}
 
-              {tab === "JSON" && <JsonViewer pages={pages} notify={notify} />}
+              {tab === "JSON" && <JsonViewer pages={pages} questions={questions} extractedText={aggregateText} warnings={warnings} notify={notify} />}
             </>}
           </motion.div></AnimatePresence>
         </SpotlightCard>
       </main>
 
       <footer className="border-t border-border py-4 text-center text-xs text-muted-foreground">
-        Questions are generated only from extracted text. Images, maps and captions are ignored.
+        Questions are generated only from extracted text. Images, maps and captions are ignored. <a href="https://assignment-f-five.vercel.app/" target="_blank" rel="noreferrer" className="ml-1 text-primary underline">Open live app</a>
       </footer>
 
       <AnimatePresence>{toast && (

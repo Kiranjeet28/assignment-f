@@ -1,6 +1,8 @@
 # Text-Only AI Question Generator
 
-Upload textbook pages; the backend extracts body text only (skipping photos, maps, diagrams, captions) and generates questions.
+Upload textbook pages; the backend uses OCR and heuristic layout detection to extract body text, flag likely photos/maps/diagrams/captions, and generate questions. Review skipped-region overlays because low-resolution or unusual layouts can still be missed or misclassified.
+
+Live frontend: [assignment-f-five.vercel.app](https://assignment-f-five.vercel.app/)
 
 ## Setup
 ```sh

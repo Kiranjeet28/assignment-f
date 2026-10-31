@@ -1,8 +1,16 @@
-import type { Page } from "@/lib/api";
+import type { Page, Question } from "@/lib/api";
 
 // Raw JSON with copy + download.
-export function JsonViewer({ pages, notify }: { pages: Page[]; notify: (m: string) => void }) {
-  const text = JSON.stringify({ pages }, null, 2);
+export function JsonViewer({ pages, questions, extractedText, warnings, notify }: {
+  pages: Page[]; questions: Question[]; extractedText: string; warnings: string[]; notify: (m: string) => void;
+}) {
+  const text = JSON.stringify({
+    pages: pages.map(({ questions: _pageQuestions, ...page }) => page),
+    extracted_text: extractedText,
+    skipped_regions: pages.flatMap((page) => page.skipped_regions),
+    questions,
+    warnings,
+  }, null, 2);
   const download = () => {
     const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
     const a = document.createElement("a");

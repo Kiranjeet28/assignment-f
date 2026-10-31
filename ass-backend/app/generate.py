@@ -20,7 +20,7 @@ def _prompt(extracted_text: str, count: int, types_requested: list[str], difficu
     return f"""Create exactly {count} educational questions using ONLY the source text below.
 Requested question types: {', '.join(types_requested)}.
 If the requested count is at least the number of distinct requested types, include at least one question of every requested type.
-Difficulty: {difficulty}. For mixed, distribute easy, medium, and hard.
+Difficulty: {difficulty}. For mixed, distribute easy, medium, and hard. For true/false, use a verbatim complete sentence from the source and mark it True; do not invent a false statement without evidence.
 Return strict JSON matching the provided schema. Each source_sentence must be copied verbatim, word-for-word, from a complete sentence in the source.
 Every answer must be directly supported by its source_sentence. Never ask about photographs, maps, diagrams, captions, or facts absent from the text.
 For MCQ, provide exactly four distinct options and one correct answer; the other options must be terms or values found elsewhere in the source text. Do not infer facts from visuals.
@@ -70,7 +70,8 @@ async def generate_grounded(text: str, count: int, requested_types: list[str], d
                 _generate_sync, text, remaining + len(rejected), attempt_types, difficulty, rejected), timeout=50)
             for item in candidates:
                 payload = item.model_dump()
-                if grounded_question(payload, text, skipped_regions) and payload["type"] in requested_types:
+                if (grounded_question(payload, text, skipped_regions) and payload["type"] in requested_types
+                        and (difficulty == "mixed" or payload["difficulty"] == difficulty)):
                     present_types = {question.type for question in accepted}
                     missing_types = required_types - present_types
                     if missing_types and payload["type"] not in missing_types:

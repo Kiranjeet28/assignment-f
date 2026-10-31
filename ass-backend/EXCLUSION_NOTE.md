@@ -1,9 +1,13 @@
 # Image, map, diagram, and caption exclusion
 
-The processing pipeline detects large non-text regions using OpenCV color saturation, local texture, contour size, and OCR word density. A detected region is heuristically classified as `photo`, `map`, or `diagram`. OCR words whose boxes substantially overlap those regions are removed before reading order and question generation.
+The backend uses OpenCV to propose non-text panels from color saturation and local texture. It filters candidates by approximate size, fill, OCR density, and shape, then classifies them as `photo`, `map`, or `diagram`. These labels and bounding boxes are heuristic. OCR words substantially overlapping detected panels are excluded from the body text and marked in the response.
 
-Caption candidates are short OCR lines near a detected region, horizontally aligned with it, or prefixed with a common label such as “Figure” or “Photo”. The caption is stored on the detected region as `caption`; a separate `type: caption` skipped region marks the caption's own box. Activity blocks are omitted from the generated text by default and returned as optional skipped regions.
+Caption detection considers short OCR lines adjacent to a visual and aligned with its horizontal span. If Tesseract merges caption words with body text on a single line, the detector attempts to isolate words over the figure's horizontal span before excluding them. A separate `type: caption` region is returned when a caption is linked. This can miss small or low-resolution captions and can still misassociate nearby text.
 
-Coordinates are pixel values relative to the page image returned by `/api/upload`. The OCR debug overlay draws retained OCR word boxes in green and exclusions in red.
+Activity handling is separate from figure exclusion. A recognized block beginning with “Activity” is marked optional and omitted by default. OCR-split or misread labels may not be recognized, so activity instructions can leak into extracted text.
 
-These are explainable heuristics rather than a trained page-layout model. They can miss grayscale or low-contrast figures, merge neighboring visual elements, or conservatively flag nearby prose. The page-44 checkpoint (four regions and four linked captions) requires running the actual assignment textbook page and reviewing its overlay; that source page was not in the workspace when this backend was implemented.
+Coordinates are pixel values relative to the page image returned by `/api/upload`. In the debug overlay, retained OCR word boxes are green, excluded word boxes are orange, and skipped-region outlines are red.
+
+### Observed page check
+
+On the supplied 554 × 936 chapter page image, the current detector returned the three photo panels and one map. It linked the glacier and dam captions but missed the Ganga-plains caption. The main body paragraphs were retained in reading order; some activity text remained, and “Activity” was split by OCR. This is a smoke check on one image, not a measured accuracy score across document types. Review the page viewer and skipped-region JSON for each new layout, especially grayscale figures, narrow captions, two-column text, and low-resolution scans.

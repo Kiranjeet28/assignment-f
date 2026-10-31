@@ -10,7 +10,7 @@ NON_CONTENT_WORDS = {
     "should", "some", "such", "than", "that", "the", "their", "them", "then", "there",
     "these", "they", "this", "those", "through", "under", "until", "upon", "very", "was",
     "were", "what", "when", "where", "which", "while", "who", "will", "with", "would",
-    "you", "your", "true", "false",
+    "you", "your", "true", "false", "why", "explain", "describe", "identify", "define", "list", "name", "passage", "state", "statement", "following", "text",
 }
 
 
