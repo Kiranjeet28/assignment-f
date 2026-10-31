@@ -113,4 +113,17 @@ The phase-44 sample output is not included as real page data because the source 
 
 ## Deployment
 
-Run with `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Configure `GEMINI_API_KEY`, optionally `GEMINI_MODEL`, and `CORS_ORIGINS` in the deployment environment. For Lovable, set `CORS_ORIGINS` to the deployed frontend origin rather than `*`.
+### Deploy backend to Render
+
+The included `Dockerfile` installs Tesseract OCR and the Python dependencies, then starts FastAPI on Render's assigned port.
+
+1. Push the project to a GitHub repository and connect it to Render as a **Web Service**.
+2. Select **Docker** as the runtime. Set the **Root Directory** to `ass-backend` (the folder containing this README and Dockerfile). If Render asks for a Dockerfile path relative to the repository root, use `ass-backend/Dockerfile`.
+3. Add these environment variables in the Render service settings:
+   - `GEMINI_API_KEY`: your Gemini key (never commit this secret).
+   - `GEMINI_MODEL`: `gemini-3.5-flash-lite` (optional; the backend has a default).
+   - `CORS_ORIGINS`: the exact deployed Lovable frontend origin, such as `https://your-project.lovable.app`.
+4. Deploy, then check `https://<your-render-service>.onrender.com/health`. Expect `{"status":"ok","gemini_configured":true}`.
+5. In the Lovable frontend environment settings, set `VITE_API_BASE_URL` to `https://<your-render-service>.onrender.com`, redeploy the frontend, and test a PDF at `/api/upload` followed by `/api/generate`.
+
+Render builds Docker services from the configured Dockerfile and makes service environment variables available at runtime. See [Render Docker deploys](https://render.com/docs/docker) and [Render environment variables](https://render.com/docs/configure-environment-variables).
