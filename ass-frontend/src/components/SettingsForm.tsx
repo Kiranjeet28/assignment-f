@@ -3,7 +3,7 @@ import type { Settings, Difficulty } from "@/lib/api";
 const COUNTS = [["mcq", "MCQ"], ["short_answer", "Short answer"], ["true_false", "True / False"], ["fill_blank", "Fill-in-the-blank"]] as const;
 const clamp = (n: number) => Math.max(0, Math.min(10, Number.isFinite(n) ? n : 0));
 
-// Question count inputs + difficulty mix sliders.
+// Question type counts and a single difficulty mode matching the API contract.
 export function SettingsForm({ value, onChange }: { value: Settings; onChange: (s: Settings) => void }) {
   const mix = value.difficulty_mix;
   const total = value.mcq + value.short_answer + value.true_false + value.fill_blank;

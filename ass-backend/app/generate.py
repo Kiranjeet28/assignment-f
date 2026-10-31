@@ -60,6 +60,7 @@ async def generate_grounded(text: str, count: int, requested_types: list[str], d
     pending = []
     pending_keys = set()
     required_types = set(requested_types) if count >= len(set(requested_types)) else set()
+    difficulty_targets = ({level: count // 3 + (index < count % 3) for index, level in enumerate(("easy", "medium", "hard"))} if difficulty == "mixed" else {})
     last_error = None
     for attempt in range(3):
         try:
@@ -71,7 +72,8 @@ async def generate_grounded(text: str, count: int, requested_types: list[str], d
             for item in candidates:
                 payload = item.model_dump()
                 if (grounded_question(payload, text, skipped_regions) and payload["type"] in requested_types
-                        and (difficulty == "mixed" or payload["difficulty"] == difficulty)):
+                        and (difficulty == "mixed" or payload["difficulty"] == difficulty)
+                        and (difficulty != "mixed" or sum(q.difficulty == payload["difficulty"] for q in accepted) < difficulty_targets[payload["difficulty"]])):
                     present_types = {question.type for question in accepted}
                     missing_types = required_types - present_types
                     if missing_types and payload["type"] not in missing_types:

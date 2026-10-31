@@ -44,7 +44,7 @@ flowchart TD
 3. **Layout and exclusion:** OpenCV estimates visual regions. Nearby caption lines, text inside visual regions, and text clipped at the image edge are excluded from question-source text. Each exclusion is returned with a type, bounding box, and reason.
 4. **Reading order:** Remaining OCR words are grouped into lines and blocks, then assembled into `extracted_text`. Activity blocks are omitted when OCR recognizes the activity heading; a split or missed heading can leave activity text in the output.
 5. **Question generation:** Gemini receives the retained text, not the page image. It returns schema-shaped questions of the requested types and difficulty.
-6. **Grounding:** Pydantic and grounding checks validate the question fields, source sentence, answer, MCQ options, and overlap with excluded captions. Invalid candidates are retried; grounded templates can fill remaining gaps after retries.
+6. **Grounding:** The normalized source sentence must match a retained text sentence; question terms must occur in the retained text; answer terms must occur in the cited sentence; MCQ options must be four distinct values found in the retained text. Caption-only terms are rejected. True/false candidates are accepted only when they repeat their source sentence and answer `True`; semantic entailment is not checked.
 7. **Response:** The API returns processed pages and OCR boxes, extracted text, skipped regions, questions, and warnings for the frontend to display.
 
 ## Requirements and setup
@@ -96,7 +96,7 @@ Response pages include `page_image_url` (base64 PNG data URL), `page_size` in pi
 
 The response has the same top-level `pages` shape expected by the frontend, plus `extracted_text`, `skipped_regions`, `questions`, and warnings. Per-page output has `page_image_url`, pixel `page_size`, OCR `words` with bboxes/confidence/line ids, ordered `blocks`, `extracted_text`, `skipped_regions`, and `debug_overlay_url` for visual OCR/layout inspection. Accepted-confidence OCR words are retained in the response, including excluded words marked with `excluded` and `excluded_reason`.
 
-Question fields: `type`, `question`, `options` (four items for MCQ), `answer`, `difficulty`, and verbatim `source_sentence`. The request's image is used for OCR/layout only. Gemini receives only the assembled retained text.
+Question fields: `type`, `question`, `options` (four items for MCQ), `answer`, `difficulty`, and verbatim `source_sentence`. Deterministic checks require answer terms to appear in the cited sentence and question/option terms to appear in extracted text. True/false items are restricted to exact source sentences marked True; the backend does not claim semantic verification of arbitrary false statements. The request's image is used for OCR/layout only. Gemini receives only the assembled retained text.
 
 ### Debug OCR
 

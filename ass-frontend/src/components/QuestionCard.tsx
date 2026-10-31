@@ -3,13 +3,23 @@ import type { Question } from "@/lib/api";
 
 export const TYPE_LABEL = { mcq: "MCQ", short_answer: "Short answer", true_false: "True/False", fill_blank: "Fill blank" } as const;
 const DIFF = { easy: "bg-diff-easy/15 text-diff-easy", medium: "bg-diff-medium/15 text-diff-medium", hard: "bg-diff-hard/15 text-diff-hard" };
+const ANSWER_STOPWORDS = new Set(["about", "after", "also", "and", "are", "because", "been", "being", "both", "but", "for", "from", "have", "into", "its", "that", "the", "their", "them", "they", "this", "through", "was", "were", "which", "with"]);
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase().trim().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const keyTerms = (value: string) => new Set(normalize(value).split(/\s+/).filter((word) => word.length > 2 && !ANSWER_STOPWORDS.has(word)));
 
 function isCorrect(q: Question, response: string, options: string[]) {
   const answer = normalize(q.answer);
   const selected = normalize(response);
   if (answer === selected) return true;
+  if (q.type === "short_answer") {
+    const expectedTerms = keyTerms(q.answer);
+    const submittedTerms = keyTerms(response);
+    const overlap = [...expectedTerms].filter((term) => submittedTerms.has(term)).length;
+    return expectedTerms.size > 0 && submittedTerms.size > 0
+      && overlap / expectedTerms.size >= 0.75
+      && overlap / submittedTerms.size >= 0.6;
+  }
   // Some generators return the option letter instead of the option text.
   const answerLetter = answer.match(/^(?:option\s*)?\(?([a-z])\)?$/)?.[1];
   if (answerLetter) {

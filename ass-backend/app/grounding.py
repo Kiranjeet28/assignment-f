@@ -16,8 +16,10 @@ NON_CONTENT_WORDS = {
 
 def _terms(value: str) -> set[str]:
     return {
-        token.casefold() for token in WORD.findall(value)
-        if token.casefold() not in NON_CONTENT_WORDS and (len(token) > 1 or token.isdigit())
+        normalized for token in WORD.findall(value)
+        if (normalized := token.casefold().strip("_"))
+        and normalized not in NON_CONTENT_WORDS
+        and (len(normalized) > 1 or normalized.isdigit())
     }
 
 
@@ -41,7 +43,8 @@ def grounded_question(question: dict, extracted_text: str, skipped_regions: list
     source_terms = _terms(source)
     answer_terms = _terms(answer)
     question_terms = _terms(prompt)
-    if not answer_terms or not answer_terms <= source_terms:
+    qtype = question.get("type")
+    if qtype != "true_false" and (not answer_terms or not answer_terms <= source_terms):
         return False
     if not question_terms <= body_terms:
         return False
@@ -53,7 +56,6 @@ def grounded_question(question: dict, extracted_text: str, skipped_regions: list
     if (question_terms | answer_terms) & (caption_terms - body_terms):
         return False
 
-    qtype = question.get("type")
     if qtype == "true_false":
         statement = re.sub(r"^true\s+or\s+false\s*:\s*", "", prompt, flags=re.I).strip()
         # Without a separate entailment model, only accept a verbatim source

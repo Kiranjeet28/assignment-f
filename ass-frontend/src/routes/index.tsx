@@ -137,7 +137,9 @@ function App() {
         const pageDebugOverlay = typeof processed?.debug_overlay_url === "string"
           ? processed.debug_overlay_url : result.debug_overlay_url;
         return {
-          source: typeof p["source"] === "string" ? p["source"] : `Page ${p.page_number ?? i + 1}`,
+          source: typeof p["source"] === "string" ? p["source"]
+            : typeof p["source_filename"] === "string" ? `${p["source_filename"]} · page ${p["source_page"] ?? p.page_number ?? i + 1}`
+              : `Page ${p.page_number ?? i + 1}`,
           page_number: p.page_number,
           page_image_url: typeof p.page_image_url === "string" ? resolveApiAsset(p.page_image_url) : "",
           page_size: processed?.page_size && typeof processed.page_size.width === "number" && typeof processed.page_size.height === "number"
@@ -159,6 +161,7 @@ function App() {
   };
 
   const page = pages[pageIdx];
+  const requestedCount = settings.mcq + settings.short_answer + settings.true_false + settings.fill_blank;
   const qs = questions.filter((q) => (fType === "all" || q.type === fType) && (fDiff === "all" || q.difficulty === fDiff));
   const words = page?.extracted_text.trim().split(/\s+/).filter(Boolean).length ?? 0;
 
@@ -180,7 +183,7 @@ function App() {
           <SpotlightCard><h2 className="mb-3 font-display text-lg">Pages</h2><UploadZone files={files} onChange={setFiles} /></SpotlightCard>
           <SpotlightCard><SettingsForm value={settings} onChange={setSettings} /></SpotlightCard>
           <div className="space-y-2">
-            <button type="button" onClick={generate} disabled={!files.length || loading} aria-busy={loading}
+            <button type="button" onClick={generate} disabled={!files.length || requestedCount === 0 || loading} aria-busy={loading}
               className="moving-border flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 shadow-soft transition-transform active:scale-[0.98] py-3 font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring">
               {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" aria-hidden />}
               {loading ? "Generating…" : "Generate Questions"}

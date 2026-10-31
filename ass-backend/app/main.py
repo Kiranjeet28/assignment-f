@@ -18,7 +18,7 @@ from app.ocr import ocr_words
 from app.schemas import GenerateRequest, PageSize, ProcessedPage, SkippedRegion, TextBlock
 
 app = FastAPI(title="Document Question Generator", version="2.0.0")
-origins = [x.strip() for x in os.getenv("CORS_ORIGINS", "http://localhost:3000,https://assignment-f-five.vercel.app").split(",") if x.strip()]
+origins = [x.strip() for x in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,https://assignment-f-five.vercel.app").split(",") if x.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False,
                    allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"])
 
