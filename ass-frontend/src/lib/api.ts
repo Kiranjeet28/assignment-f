@@ -13,9 +13,11 @@ export interface Page {
 export interface GenerateResult { extracted_text: string; questions: Question[]; skipped_regions: Region[]; warnings: string[]; debug_overlay_url?: string }
 export interface Settings { mcq: number; short_answer: number; true_false: number; fill_blank: number; difficulty_mix: Record<Difficulty, number> }
 
-const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
+const apiBase = (import.meta.env["VITE_API_BASE_URL"] as string | undefined)?.replace(/\/$/, "");
 export function resolveApiAsset(url: string) {
-  return /^https?:\/\//i.test(url) || !apiBase ? url : `${apiBase}${url.startsWith("/") ? "" : "/"}${url}`;
+  // Upload returns image data URLs; overlay/page assets may also be absolute URLs.
+  // Only prepend the API origin to relative paths.
+  return /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(url) || !apiBase ? url : `${apiBase}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
 function errorMessage(status: number, detail?: string) {

@@ -26,6 +26,54 @@ export const Route = createFileRoute("/")({
 
 const TABS = ["Page View", "Extracted Text", "Skipped / Flagged", "Questions", "JSON"] as const;
 type Tab = (typeof TABS)[number];
+const REGION_TYPES = ["photo", "map", "diagram", "caption"] as const;
+const QUESTION_TYPES = ["mcq", "short_answer", "true_false", "fill_blank"] as const;
+const DIFFICULTIES = ["easy", "medium", "hard"] as const;
+
+function normalizeRegions(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const region = entry as Record<string, unknown>;
+    const normalizedType = region["type"] === "image" ? "photo" : region["type"];
+    if (!REGION_TYPES.includes(normalizedType as (typeof REGION_TYPES)[number])) return [];
+    let bbox: number[] | undefined;
+    if (Array.isArray(region["bbox"]) && region["bbox"].length === 4 && region["bbox"].every((n) => typeof n === "number" && Number.isFinite(n))) {
+      bbox = region["bbox"] as number[];
+    } else if (region["bbox"] && typeof region["bbox"] === "object") {
+      const box = region["bbox"] as Record<string, unknown>;
+      const x = box["x"] ?? box["x0"] ?? box["left"];
+      const y = box["y"] ?? box["y0"] ?? box["top"];
+      const xEnd = box["x1"] ?? box["right"];
+      const yEnd = box["y1"] ?? box["bottom"];
+      const width = box["width"] ?? (typeof xEnd === "number" && typeof x === "number" ? xEnd - x : undefined);
+      const height = box["height"] ?? (typeof yEnd === "number" && typeof y === "number" ? yEnd - y : undefined);
+      if ([x, y, width, height].every((n) => typeof n === "number" && Number.isFinite(n))) bbox = [x as number, y as number, width as number, height as number];
+    }
+    if (!bbox) return [];
+    return [{ type: normalizedType as (typeof REGION_TYPES)[number], caption: typeof region["caption"] === "string" ? region["caption"] : null, bbox: bbox as [number, number, number, number], ...(typeof region["page"] === "number" && { page: region["page"] }) }];
+  });
+}
+
+function normalizeQuestions(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object") return [];
+    const question = entry as Record<string, unknown>;
+    if (typeof question["question"] !== "string" || typeof question["answer"] !== "string") return [];
+    const type = QUESTION_TYPES.includes(question["type"] as (typeof QUESTION_TYPES)[number]) ? question["type"] as (typeof QUESTION_TYPES)[number] : "short_answer";
+    const difficulty = DIFFICULTIES.includes(question["difficulty"] as (typeof DIFFICULTIES)[number]) ? question["difficulty"] as (typeof DIFFICULTIES)[number] : "medium";
+    return [{
+      id: typeof question["id"] === "number" ? question["id"] : index + 1,
+      type,
+      difficulty,
+      question: question["question"] as string,
+      options: Array.isArray(question["options"]) ? question["options"].filter((option): option is string => typeof option === "string") : null,
+      answer: question["answer"] as string,
+      source_sentence: typeof question["source_sentence"] === "string" ? question["source_sentence"] : "",
+    }];
+  });
+}
 
 function Empty({ msg }: { msg: string }) {
   return <div className="grid min-h-[300px] place-items-center rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">{msg}</div>;
@@ -61,19 +109,23 @@ function App() {
       const uploaded = await uploadFiles(files);
       setStatus(`Uploaded ${uploaded.length} page${uploaded.length === 1 ? "" : "s"}. Generating questions…`);
       const result = await generateQuestions(uploaded, settings);
+      const regions = normalizeRegions(result.skipped_regions);
+      const extractedText = typeof result.extracted_text === "string" ? result.extracted_text : "";
+      const questions = normalizeQuestions(result.questions);
+      if (questions.length === 0) throw new Error("The backend returned a questions list, but none of its entries had a readable question and answer.");
       const merged = uploaded.map((p, i) => ({
-        source: typeof p.source === "string" ? p.source : `Page ${p.page_number ?? i + 1}`,
+        source: typeof p["source"] === "string" ? p["source"] : `Page ${p.page_number ?? i + 1}`,
         page_number: p.page_number,
-        page_image_url: resolveApiAsset(p.page_image_url),
-        page_size: p.page_size,
-        extracted_text: result.extracted_text ?? "",
-        skipped_regions: result.skipped_regions.filter((r) => r.page == null || r.page === p.page_number || r.page === i + 1),
-        questions: result.questions,
-        debug_overlay_url: result.debug_overlay_url ? resolveApiAsset(result.debug_overlay_url) : undefined,
+        page_image_url: typeof p.page_image_url === "string" ? resolveApiAsset(p.page_image_url) : "",
+        page_size: p.page_size && typeof p.page_size.width === "number" && typeof p.page_size.height === "number" ? p.page_size : { width: 1, height: 1 },
+        extracted_text: extractedText,
+        skipped_regions: regions.filter((r) => r.page == null || r.page === p.page_number || r.page === i + 1),
+        questions,
+        ...(result.debug_overlay_url ? { debug_overlay_url: resolveApiAsset(result.debug_overlay_url) } : {}),
       } satisfies Page));
       load(merged);
-      setWarnings(Array.isArray(result.warnings) ? result.warnings : []);
-      setStatus(`Generated ${result.questions.length} questions from ${uploaded.length} page${uploaded.length === 1 ? "" : "s"}.`);
+      setWarnings(Array.isArray(result.warnings) ? result.warnings.map((warning) => typeof warning === "string" ? warning : JSON.stringify(warning)) : []);
+      setStatus(`Generated ${questions.length} questions from ${uploaded.length} page${uploaded.length === 1 ? "" : "s"}.`);
       notify("Questions generated");
     }
     catch (e) { setStatus((e as Error).message); notify((e as Error).message, true); }
