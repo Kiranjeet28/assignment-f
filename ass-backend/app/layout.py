@@ -37,10 +37,10 @@ def detect_visual_regions(image, words: list[dict]) -> list[dict]:
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     local_mean = cv2.blur(gray, (21, 21))
     local_sq = cv2.blur(gray.astype(np.float32) ** 2, (21, 21))
-    texture = ((local_sq - local_mean.astype(np.float32) ** 2) > 420).astype(np.uint8) * 255
+    texture = ((local_sq - local_mean.astype(np.float32) ** 2) > 650).astype(np.uint8) * 255
     texture_mask = cv2.morphologyEx(
         texture, cv2.MORPH_CLOSE,
-        cv2.getStructuringElement(cv2.MORPH_RECT, (max(9, w // 100), max(7, h // 100))))
+        cv2.getStructuringElement(cv2.MORPH_RECT, (max(5, w // 200), max(3, h // 200))))
     page_area = w * h
     candidates = []
     for source_mask, is_color in ((color_mask, True), (texture_mask, False)):
@@ -49,15 +49,23 @@ def detect_visual_regions(image, words: list[dict]) -> list[dict]:
             x, y, cw, ch = cv2.boundingRect(contour)
             area = cw * ch
             # Ignore tiny decoration and page-sized background/text blobs.
-            min_area = page_area * (0.06 if is_color else 0.035)
+            # Textbook photos are often only 3–5% of the page area. The older
+            # 6% color cutoff dropped those panels while keeping the map.
+            min_area = page_area * (0.025 if is_color else 0.018)
             if (area < min_area or area > page_area * 0.62
-                    or cw < w * 0.16 or ch < h * 0.075):
+                    or cw < w * 0.12 or ch < h * 0.09):
                 continue
             box = _box(x, y, x + cw, y + ch)
             fill = cv2.countNonZero(source_mask[y:y + ch, x:x + cw]) / max(1, area)
             if fill < (0.16 if is_color else 0.27):
                 continue
             inside = [word for word in words if _intersection_over_smaller(word["bbox"], box) > 0.65]
+            # Texture on dense printed paragraphs can form page-sized blobs.
+            # A real photo usually has few OCR words; map labels are handled by
+            # the separate color proposal and scattered-label classifier.
+            word_density = len(inside) / max(1, area / 10000)
+            if not is_color and word_density > 4.0:
+                continue
             candidates.append({"bbox": box, "inside": inside, "is_color": is_color})
 
     # Deduplicate near-identical proposals, preferring the more reliable color
@@ -83,12 +91,18 @@ def detect_visual_regions(image, words: list[dict]) -> list[dict]:
             for wrd in region["inside"]
         }
         scattered_labels = len(region["inside"]) >= 12 and len(occupied_grid) >= 7
-        if scattered_labels or (region["is_color"] and len(region["inside"]) >= 8 and unique_colors > 18):
+        area_ratio = ((b["x1"] - b["x0"]) * (b["y1"] - b["y0"])) / max(1, page_area)
+        aspect_ratio = bw / bh
+        if (scattered_labels
+                or (area_ratio > 0.08 and aspect_ratio < 1.2)
+                or (area_ratio > 0.08 and len(region["inside"]) >= 8 and unique_colors > 18)):
             kind = "map"
         else:
             patch = gray[b["y0"]:b["y1"], b["x0"]:b["x1"]]
             texture_score = float(np.std(patch)) if patch.size else 0
-            kind = "photo" if texture_score > 27 else "diagram"
+            photo_like = (0.72 <= aspect_ratio <= 3.8 and texture_score >= 17
+                          and (region["is_color"] or texture_score >= 32))
+            kind = "photo" if photo_like else "diagram"
         region.update(type=kind, reason="opencv_non_text_visual")
         region.pop("inside", None)
         region.pop("is_color", None)
